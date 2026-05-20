@@ -5,7 +5,7 @@ import openpyxl
 from openpyxl import load_workbook
 from openpyxl.utils.cell import coordinate_from_string, column_index_from_string
 from openpyxl.utils import get_column_letter
-import io, os
+import io, os, zipfile
 from datetime import datetime
 
 app = Flask(__name__)
@@ -19,7 +19,6 @@ TEMPLATES = {
     'mexico': os.path.join(BASE, 'template_mexico.xlsx'),
 }
 
-# ── 메인 페이지 ──────────────────────────────────────────────
 @app.route('/')
 def index():
     return send_from_directory(BASE, 'invoice_generator.html')
@@ -46,6 +45,27 @@ def safe_write(ws, ref, value):
         ws[ref].value = value
     except AttributeError:
         pass
+
+def fix_image_paths(buf):
+    """openpyxl이 절대경로로 저장한 이미지 경로를 상대경로로 수정"""
+    buf.seek(0)
+    fixed = io.BytesIO()
+    with zipfile.ZipFile(buf, 'r') as zin:
+        with zipfile.ZipFile(fixed, 'w', zipfile.ZIP_DEFLATED) as zout:
+            for item in zin.namelist():
+                data = zin.read(item)
+                if 'drawings/_rels/' in item and item.endswith('.rels'):
+                    content = data.decode('utf-8')
+                    content = content.replace('Target="/xl/media/', 'Target="../media/')
+                    content = content.replace('Target="/xl/drawings/', 'Target="../drawings/')
+                    data = content.encode('utf-8')
+                if 'worksheets/_rels/' in item and item.endswith('.rels'):
+                    content = data.decode('utf-8')
+                    content = content.replace('Target="/xl/drawings/', 'Target="../drawings/')
+                    data = content.encode('utf-8')
+                zout.writestr(item, data)
+    fixed.seek(0)
+    return fixed
 
 @app.route('/generate', methods=['POST'])
 def generate():
@@ -102,8 +122,9 @@ def generate():
 
     buf = io.BytesIO()
     wb.save(buf)
-    buf.seek(0)
-    return send_file(buf, as_attachment=True,
+    fixed = fix_image_paths(buf)
+
+    return send_file(fixed, as_attachment=True,
                      download_name=f"{inv_no}.xlsx",
                      mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
