@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify, send_file, send_from_directory
 from flask_cors import CORS
 import openpyxl
 from openpyxl import load_workbook
@@ -13,11 +13,16 @@ CORS(app)
 BASE = os.path.dirname(os.path.abspath(__file__))
 
 TEMPLATES = {
-    'china':  os.path.join(BASE, 'template_china.xlsx'),   # TS-260119 (2품목: G23/H23, G25/H25)
-    'india':  os.path.join(BASE, 'template_india.xlsx'),   # TS-260501 (2품목: G24/H24, G25/H25)
-    'nasn':   os.path.join(BASE, 'template_nasn.xlsx'),    # TS-260511 (1품목: G24/H24)
-    'mexico': os.path.join(BASE, 'template_mexico.xlsx'),  # TS-260504 (2품목: G24/H24, G26/H26)
+    'china':  os.path.join(BASE, 'template_china.xlsx'),
+    'india':  os.path.join(BASE, 'template_india.xlsx'),
+    'nasn':   os.path.join(BASE, 'template_nasn.xlsx'),
+    'mexico': os.path.join(BASE, 'template_mexico.xlsx'),
 }
+
+# ── 메인 페이지 ──────────────────────────────────────────────
+@app.route('/')
+def index():
+    return send_from_directory(BASE, 'invoice_generator.html')
 
 def fmt_ordinal(date_str):
     d = datetime.strptime(date_str, '%Y-%m-%d')
@@ -110,3 +115,4 @@ if __name__ == '__main__':
     print("✓ Invoice Generator Server 시작")
     print("✓ http://localhost:5050")
     app.run(host='0.0.0.0', port=5050, debug=False)
+    
